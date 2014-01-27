@@ -1,6 +1,9 @@
 /*
- *  BEANDisco: main program
+ * BEANDiscoMulti: main program
  *  
+ * Copyright 2013 Diane Oyen <doyen(at)cs.unm.edu>
+ *
+ * Modified from BEANDisco, originally:
  *  Copyright 2011 Teppo Niinimäki <teppo.niinimaki(at)helsinki.fi>
  *  
  *  This program is free software: you can redistribute it and/or modify
@@ -49,13 +52,6 @@
 
 // type definitions
 typedef Lognum<double> Real;
-//typedef double Real;
-//#include <gmpxx.h>
-//typedef Lognum<mpf_class> Real;
-//template <typename T>
-//T to(mpf_class x){
-//	return T(x.get_d());
-//}
 
 
 // create a logger
@@ -98,34 +94,6 @@ std::ostream& operator<<(std::ostream& os, const Arc& arc) {
 const Arc NullArc = { -1, -1 };
 
 
-/*class ArcFeature {
-private:
-	Arc arc_;
-	int v_;
-	
-public:
-	ArcFeature(Arc arc, int v)
-		: arc_(arc), v_(v) {
-	}
-	
-	bool holds(const StackSubset& pa) {
-		return (arc_.head != v_ || pa.contains(arc_.tail));
-	}
-	
-	bool value(const StackSubset& pa) {
-		return (arc_.head != v_ || pa.contains(arc_.tail)) ? 1.0 : 0.0;
-	}
-};/**/
-
-/*Arc translateArc(const int* order, Arc arc) {
-	Arc arct;
-	arct.head = po.getIndex(arc.head);
-	arct.tail = po.getIndex(arc.tail);
-	return arct;
-}/**/
-
-
-
 
 /**
  * A templated map data structure with Arc as index type.
@@ -165,102 +133,30 @@ public:
 
 
 
-
-/*
-void readADTScores(std::string filename, SubsetDirectory& subsetDirectory, ParentsetMap<Real>& scores) {
-	StackSubset pa(nVariables);
-	std::ifstream f(filename.c_str());
-	for (int v = 0; v < nVariables; ++v) {
-		// read for all parent sets
-		for (int paMask = 0; paMask < (1 << nVariables); ++paMask) {
-			double loglhd;
-			f >> loglhd;
-			//std::cout << loglhd << std::endl;
-			if (loglhd != 0.0) {
-				int pai = subsetDirectory.getIndex(pa);
-				//double lhd = exp(loglhd);
-				//scores[v][pai] = lhd;
-				Lognum<double> tmp;
-				tmp.setLog(loglhd);
-				scores[v][pai] = to<Real>(tmp);
-				
-				//printf("%d <- ", v);
-				//printSubset(pa, false, maxIndegree);
-				//printf("  [%d][%2d]   => %g\n", v, pai, scores[v][pai]);
-			}
-			pa.next(0, nVariables, nVariables);
-		}
-	}
-	f.close();
-}/**/
-
-/*
-// TODO: muuta rasittava läpikäyntijärjestys, myös ADTreehen
-void readADTScores2(std::string filename, SubsetDirectory& subsetDirectory, ParentsetMap<Real>& scores) {
-	StackSubset family(nVariables);
-	StackSubset pa(nVariables);
-	std::ifstream f(filename.c_str());
-	for (int v = 0; v < nVariables; ++v) {
-		// read for all parent sets
-		do {
-			double loglhd;
-			f >> loglhd;
-			//std::cout << loglhd << std::endl;
-			//if (loglhd != 0.0) {
-			if (family.contains(v)) {
-				//assert(family.contains(v));
-				//assert(loglhd != 0.0);
-				
-				pa.clear();
-				for (int i = 0; i < family.size(); ++i)
-					if (family[i] != v)
-						pa.push(family[i]);
-				
-				int pai = subsetDirectory.getIndex(pa);
-				Lognum<double> tmp;
-				tmp.setLog(loglhd);
-				scores[v][pai] = to<Real>(tmp);
-				
-				//printf("%d <- ", v);
-				//printSubset(pa, false, maxIndegree);
-				//printf("  [%d][%2d]   => %g\n", v, pai, scores[v][pai]);
-			} else {
-				//assert(!family.contains(v));
-				assert(loglhd == 0.0);
-			}
-		} while (family.next(0, nVariables, maxIndegree + 1));
-	}
-	f.close();
-}/**/
-
-
-
 /**
  * Computes single-task K2 scores for all node-parentset pairs for all tasks
  */
 void computeScores(const Data* data, ParentsetMap<Real>** scores, 
 		   int nTasks) {
-  // need array of multitask Data and scores
   //computeLogGammas(2 * data[0].nSamples);
-	StackSubset parents(scores[0]->maxParents);
-	for (int node = 0; node < scores[0]->nNodes; ++node) {
-		parents.clear();
-		do {
-			if (parents.contains(node))
-				continue;
-			double *logScores = new double[nTasks];
-			computeScore(logScores, data, parents, node, 
-				     nTasks);
-			//printf("%g ", logScore);
-			for (int t = 0; t < nTasks; t++)
-			{
-			  Lognum<double> tmp;
-			  tmp.setLog(logScores[t]);
-			  (*scores[t])(node, parents) = to<Real>(tmp);
-			}
-		} while (parents.next(0, scores[0]->nNodes, scores[0]->maxParents));
+  StackSubset parents(scores[0]->maxParents);
+  for (int node = 0; node < scores[0]->nNodes; ++node) {
+    parents.clear();
+    do {
+      if (parents.contains(node))
+	continue;
+      double *logScores = new double[nTasks];
+      computeScore(logScores, data, parents, node, 
+		   nTasks);
+      for (int t = 0; t < nTasks; t++)
+	{
+	  Lognum<double> tmp;
+	  tmp.setLog(logScores[t]);
+	  (*scores[t])(node, parents) = to<Real>(tmp);
 	}
-	freeLogGammas();
+    } while (parents.next(0, scores[0]->nNodes, scores[0]->maxParents));
+  }
+  freeLogGammas();
 }
 
 int calcDelta(StackSubset p1, StackSubset p2) {
@@ -292,48 +188,135 @@ Real* preCalcPDeltas(int maxN) {
  * Computes multitask scores for all node-parentset pairs for all tasks with parentset prior
  **/
 void computeMultiScores(ParentsetMap<Real>** multiScores,  ParentsetMap<Real>** scores,
-			int nTasks) {
+			int nTasks, int maxParentSets) {
   Real* pDeltas = preCalcPDeltas(scores[0]->nNodes);
   StackSubset parents(scores[0]->maxParents);
   StackSubset pa(scores[0]->maxParents);
+  size_t** topPa = new size_t*[nTasks];
+  int numParentSets = 0;
+
+  // Pre-compute product of all single-task scores
+  ParentsetMap<Real>* kscores;
+  kscores = new ParentsetMap<Real>(scores[0]->nNodes, scores[0]->maxParents);
+  parents.clear();
   for (int node = 0; node < scores[0]->nNodes; ++node) {
+    do {
+      if (parents.contains(node))
+	continue;
+      (*kscores)(node, parents) = 1;
+    } while (parents.next(0, scores[0]->nNodes, scores[0]->maxParents));
+    for (int task = 0; task < nTasks; ++task) {
+      do {
+	if (parents.contains(node))
+	  continue;
+	(*kscores)(node, parents) = (*scores[task])(node, parents);
+      } while (parents.next(0, scores[0]->nNodes, scores[0]->maxParents));
+    }
+  }
+
+  for (int node = 0; node < scores[0]->nNodes; ++node) {
+    // Sort top family scores for each node in each task
+    if (maxParentSets > 0) {
+      for (int task = 0; task < nTasks; ++task) {
+	topPa[task] = new size_t[maxParentSets];
+	numParentSets = 0;
+	pa.clear();
+	do {
+	  if (pa.contains(node))
+	    continue;
+	  Real scoreTemp = (*kscores)(node, pa) / (*scores[task])(node, pa);
+
+	  // topPa full, see if this score will be added
+	  if ((numParentSets == maxParentSets) && 
+	      ((*kscores)(node, topPa[task][numParentSets-1]) / (*scores[task])(node, topPa[task][numParentSets-1]) > scoreTemp))
+	    continue;
+	  // otherwise, it will be added, just need to find where
+	  if (numParentSets == 0) {
+	    topPa[task][0] = scores[task]->getParentsetIndex(pa);
+	    numParentSets++;
+	    continue;
+	  }
+	  if (numParentSets < maxParentSets) {
+	    numParentSets++;
+	  }
+	  int i = numParentSets - 1;
+	  while ((i>0) && (scoreTemp > (*kscores)(node, topPa[task][i-1]) / (*scores[task])(node, topPa[task][i-1]))) {
+	    topPa[task][i] = topPa[task][i-1];
+	    i--;
+	  }
+	  topPa[task][i] = scores[task]->getParentsetIndex(pa);
+
+	}  while(pa.next(0, scores[0]->nNodes, scores[0]->maxParents));
+      }
+    }
+
+    // calculate scores
     parents.clear();
     do {
       if (parents.contains(node))
 	continue;
-      // Initialize prior, parent sets to loop through
-      Real* prior = new Real[nTasks];
-      for (int task = 0; task < nTasks; ++task) {
-	prior[task] = 0;
-      }
-      pa.clear();
-      
-      // loop through parent sets (to examine pairs of parent sets)
-      do {
-	if (pa.contains(node))
-	  continue;
-	int delta = calcDelta(parents, pa);
-	for (int task = 0; task < nTasks; ++task) {
-	  prior[task] += (*scores[task])(node, pa) * pDeltas[delta];
-	}
-      } while (pa.next(0, scores[0]->nNodes, scores[0]->maxParents));
 
-      // apply prior from all task to each task
+      // Initialize prior, parent sets to loop through
+      //Real* prior = new Real[nTasks];
       for (int task = 0; task < nTasks; ++task) {
-	for (int j = 0; j < nTasks; ++j) {
-	  if (j==task)
+	//prior[task] = 0;
+	(*multiScores[task])(node, parents) = 0;
+      }
+
+      // approximate prior with just top scoring parent sets
+      if (maxParentSets > 0) {
+	for (int i = 0; i < numParentSets; i++) {
+	  for (int task = 0; task < nTasks; ++task) {
+	    int delta = calcDelta(parents, topPa[task][i]);
+	    (*multiScores[task])(node, parents) += (*kscores)(node, topPa[task][i]) * pDeltas[delta] / (*scores[task])(node, topPa[task][i]);
+	  }
+	}
+      }
+
+      else { // do full prior
+	pa.clear();      
+	// loop through parent sets (to examine pairs of parent sets)
+	do {
+	  if (pa.contains(node))
 	    continue;
+	  int delta = calcDelta(parents, pa);
+	  //for (int task = 0; task < nTasks; ++task) {
+	  //  prior[task] += (*scores[task])(node, pa) * pDeltas[delta];
+	  //}
+	  // apply prior from kscores to each task
+	  for (int task = 0; task < nTasks; ++task) {
+	    (*multiScores[task])(node, parents) += (*kscores)(node, pa) * pDeltas[delta] / (*scores[task])(node, pa); 
+	  }
+	} while (pa.next(0, scores[0]->nNodes, scores[0]->maxParents));
+      }
+
+      // Multiply prior and score
+      for (int task = 0; task < nTasks; ++task) {
+	(*multiScores[task])(node, parents) *= (*scores[task])(node, parents);
+      }
+
+      // apply prior from all tasks to each task
+      //for (int task = 0; task < nTasks; ++task) {
+      //(*multiScores[task])(node, parents) = (*scores[task])(node, parents);
+      //for (int j = 0; j < nTasks; ++j) {
+      //  if (j==task)
+      //    continue;
 	  //if (prior[j] == 0)
 	  //  prior[j] = 1;
-	  (*scores[task])(node, parents) *= prior[j];
-	}
-      }
+      //  (*multiScores[task])(node, parents) *= prior[j];
+      //}
+      //}
     } while (parents.next(0, scores[0]->nNodes, scores[0]->maxParents));
   }
+
+  if (maxParentSets > 0) {
+    for (int t; t < nTasks; t++)
+      delete[] topPa[t];
+  }
+  delete[] topPa;
   delete[] pDeltas;
+  delete kscores;
 }
-
-
 
 template <class T>
 T binom(int n, int k) {
@@ -1216,7 +1199,7 @@ void writeScores(std::ostream& file, const ParentsetMap<Real>& scores) {
 		do {
 			if (parents.contains(node))
 				continue;
-			file << log(scores(node, parents)) << " ";
+			file << scores(node, parents).getLog() << " ";
 		} while (parents.next(0, scores.nNodes, scores.maxParents));
 		file << std::endl;
 	}
@@ -1339,25 +1322,17 @@ int main(int argc, char** argv) {
 	string inFilename;
 	string outFilename;
 	string scoreFilename;
-	string marginOutFilename;
 	string logFilename;
+	//string weightFilename;
 	
 	int nTasks;
+	//double** weights;
+
 	int nVariables;
 	int maxIndegree;
+	int maxParentSets;
 	int nDataSamples;
-	
-	string poType;
-	//int nBuckets;
-	int maxBucketSize;
-	int nChains;
-	
-	int nSamples;
-	int nStepsPerSample;
-	int nBurnInSteps;
-	//int nBurnInTempering;
-	int nBurnOutSteps;
-	
+
 	unsigned int rngSeed;
 	
 	int verbosity;
@@ -1365,46 +1340,31 @@ int main(int argc, char** argv) {
 	opts::options_description desc("Options");
 	desc.add_options()
 		("help,h",          "produce help message")
-		("exact,e",         "use exact computation instead of MCMC")
-		("test-conv",       "just test MCMC convergence")
 		("verbose,v",       opts::value<int>(&verbosity)->default_value(0)->implicit_value(1),
 		                    "set verbosity level")
 		("quiet,q",         "use quiet mode, does not print anything unnecessary")
-		("num-tasks,t",      opts::value<int>(&nTasks)->default_value(1),
-		                    "set number of tasks")	        
 		("num-rows,r",      opts::value<int>(&nDataSamples)->default_value(0),
 		                    "set number of data rows (samples)")
+		("num-tasks,t",      opts::value<int>(&nTasks)->default_value(1),
+		                    "set number of tasks")
 		("num-variables,n", opts::value<int>(&nVariables)->default_value(0),
 		                    "set number of variables")
 		("max-indegree,m",  opts::value<int>(&maxIndegree)->default_value(0),
 		                    "set maximum indegree")
-		("order-type",      opts::value<string>(&poType)->default_value("bo"),
-		                    "set partial order type, possible values: bo, pbo")
-		("bucket-size,b",   opts::value<int>(&maxBucketSize)->default_value(1),
-		                    "set (maximum) bucket size")
-		("num-chains,c",    opts::value<int>(&nChains)->default_value(1),
-		                    "set number of bucket chains")
-		("num-samples,s",   opts::value<int>(&nSamples)->default_value(0),
-		                    "set number of samples to draw")
-		("sample-steps,S",  opts::value<int>(&nStepsPerSample)->default_value(1),
-		                    "set number of steps per sample")
-		("burnin-steps,B",  opts::value<int>(&nBurnInSteps)->default_value(0),
-		                    "set number of burn-in steps")
-		("burnout-steps",   opts::value<int>(&nBurnOutSteps)->default_value(0),
-		                    "set number of burn-out steps")
+      	        ("approx,a",        opts::value<int>(&maxParentSets)->default_value(0),
+	  	                    "only use top <a> scoring parent sets for transfer approximation")
 		("seed",            opts::value<unsigned int>(&rngSeed)->default_value(time(0)),
 		                    "set seed for random number generator")
 		("input-file,i",    opts::value<string>(&inFilename)->default_value(""),
 		                    "set input file for data")
 		("score-file",      opts::value<string>(&scoreFilename)->default_value(""),
-		                    "set score file (for output if data file given and for input otherwise)")
+		                    "set score file for reading in STL scores")
+	  //("weight-file",     opts::value<string>(&weightFilename)->default_value(""),
+	  //	                    "read task-relatedness weights from file")
 		("output-file,o",   opts::value<string>(&outFilename)->default_value("-"),
-		                    "set output file for feature probabilities")
-		("margin-file",     opts::value<string>(&marginOutFilename)->default_value(""),
-		                    "set output file for marginal probabilities")
+		                    "set output file for MTL scores")
 		("log-file",        opts::value<string>(&logFilename)->default_value(""),
 		                    "set log file to write statistics about computation")
-		("print-samples",   "output instead all p-value samples")
 		;
 
 	opts::positional_options_description pdesc;
@@ -1423,7 +1383,7 @@ int main(int argc, char** argv) {
 	}
 	
 	if (vm.count("help")) {
-		logger.println(-1, "BEANDisco - Bayesian Exact and Approximate Network Discovery");
+		logger.println(-1, "BEANDiscoMulti - Bayesian Exact and Approximate Network Discovery");
 		logger.println(-1, "Version " BEAND_VERSION_STRING);
 		logger.println(-1);
 		logger.println(-1, "Usage:");
@@ -1433,11 +1393,6 @@ int main(int argc, char** argv) {
 		return 1;
 	}
 	
-	bool exact = vm.count("exact");
-	bool testConv = vm.count("test-conv");
-	
-	bool printSamples = vm.count("print-samples");
-	
 	if (vm.count("quiet"))
 		logger.setVerbosity(-1);
 	else
@@ -1445,15 +1400,53 @@ int main(int argc, char** argv) {
 	
 	
 	logger.println(2, "Parameters:");
-	logger.printfln(2, "  computation type = %s", exact ? "Exact" : "MCMC");
 	logger.printfln(2, "  data file = %s", inFilename.c_str());
+	logger.printfln(2, "  scoreFilename = %s", scoreFilename.c_str());
 	logger.printfln(2, "  outFilename = %s", outFilename.c_str());
+	logger.printfln(2, "  number_tasks = %d", nTasks);	
 	logger.printfln(2, "  nVariables = %d", nVariables);
-	logger.printfln(2, "  nSamples = %d", nSamples);
+	logger.printfln(2, "  number_rows = %d", nDataSamples);
 	logger.printfln(2, "  maxIndegree = %d", maxIndegree);
-	logger.printfln(2, "  maxBucketSize = %d", maxBucketSize);
-	logger.printfln(2, "  nTasks = %d", nTasks);
+	logger.printfln(2, "  approx = %d", maxParentSets);
 	
+        // if weight file given, read it in
+	/*
+	if (!weightFilename.empty()) {
+	  ifstream wFile;
+	  istream weightFile(0);
+	  string row;
+	  wFile.open(weightFilename.c_str());
+	  if (!wFile) {
+	    logger.printfln(-1, "Error: Could not open file '%s' for reading.", weightFilename.c_str());
+	    return 1;
+	  }
+	  weightFile.rdbuf(wFile.rdbuf());
+	  for (int t = 0; t < nTasks; t++) {
+	    if (weightFile.eof()) {
+	      logger.printfln(-1, "Error: Not enough rows (%d while %d expected).", t, nTasks);
+	      return 1;
+	    }
+	    getline(weightFile, row);
+	    std::istringstream rowStream(row);
+	    for (int j = 0; j < nTasks; j++) {
+	      double tmp;
+	      rowStream >> tmp;
+	      if (rowStream.fail()) {
+		logger.printfln(-1, "Error: Could not read value on row %d column %d", (t+1), (j+1));
+		return 1;
+	      }
+	      weights[t][j] = tmp;
+	    }
+	  }
+	} else {
+	  // weights are uniform (standard MTL)
+	  weights = new double*[nTasks];
+	  for (int t = 0; t < nTasks; t++)
+	    weights[t] = new double[nTasks];
+	  for (int t = 0; t < nTasks; t++)
+	    for (int j = 0; j < nTasks; j++)
+	      weights[t][j] = 1;
+	      }*/
 	
 	// open log stream for statistics
 	ofstream logFile;
@@ -1476,17 +1469,11 @@ int main(int argc, char** argv) {
 	logStream << "data_file = " << inFilename << endl;
 	logStream << "score_file = " << scoreFilename << endl;
 	logStream << "output_file = " << outFilename << endl;
-	logStream << "margin_output_file = " << marginOutFilename << endl;
-	logStream << "nTasks = " << nTasks << endl;
+	//logStream << "weight_file = " << weightFilename << endl;
 	logStream << "variables = " << nVariables << endl;
 	logStream << "rows = " << nDataSamples << endl;
 	logStream << "maximum_indegree = " << maxIndegree << endl;
-	logStream << "bucket_size = " << maxBucketSize << endl;
-	logStream << "chains = " << nChains << endl;
-	logStream << "samples = " << nSamples << endl;
-	logStream << "steps = " << nStepsPerSample << endl;
-	logStream << "burnin_steps = " << nBurnInSteps << endl;
-	logStream << "burnout_steps = " << nBurnOutSteps << endl;
+	logStream << "maximum_parent_sets (approx) = " << maxParentSets << endl;
 	logStream << "seed = " << rngSeed << endl;
 	
 	// initialize rng
@@ -1494,21 +1481,31 @@ int main(int argc, char** argv) {
 	
 	//nBuckets = (nVariables + maxBucketSize - 1) / maxBucketSize;
 	
-	// start global timer
+	// Initialize timers
 	Timer timer;
 	timer.start();
+	Timer scoreTimer; 
+	double scoreTime;
 	
 	// map for local scores
-	ParentsetMap<Real>** tscores; // temp scores from single-task estimate
+	ParentsetMap<Real>** tscores;
 	tscores = new ParentsetMap<Real>*[nTasks];
 	ParentsetMap<Real>** scores;
 	scores = new ParentsetMap<Real>*[nTasks];
 	
 	// if data file given, read the data and compute the scores
 	if (!inFilename.empty()) {
+		if (maxIndegree <= 0) {
+			logger.println(-1, "Error: The maximum in-degree not given.");
+			logger.println(-1, "Aborting.");
+			return 1;
+		}
+		
 		logger.println(1, "Reading data...");
 		Data *data = new Data[nTasks];
-		for (int t = 0; t < nTasks; t++) {
+		int *maxarities = NULL;
+		for (int t = 0; t < nTasks; t++)
+		{
 		  istream inStream(0);
 		  ifstream inFile;
 		  string taskfile;
@@ -1518,7 +1515,7 @@ int main(int argc, char** argv) {
 		  } else {
 		    snprintf(taskno, 10, ".task%d", t+1);
 		    taskfile = inFilename + taskno;
-		    inFile.open(inFilename.c_str());
+		    inFile.open(taskfile.c_str());
 		    if (!inFile) {
 		      logger.printfln(-1, "Error: Could not open file '%s' for reading.", inFilename.c_str());
 		      return 1;
@@ -1526,7 +1523,7 @@ int main(int argc, char** argv) {
 		    inStream.rdbuf(inFile.rdbuf());
 		  }
 		  try {
-		    if (nDataSamples > 0 && nVariables > 0)
+		    if (nDataSamples > 0 || nVariables > 0)
 		      data[t].read(inFile, nVariables, nDataSamples);
 		    else
 		      data[t].read(inStream);
@@ -1536,182 +1533,124 @@ int main(int argc, char** argv) {
 		  }
 		  if (inFile.is_open())
 		    inFile.close();
+		  // track max arity for each variable
+		  if (maxarities == NULL) {
+		    //memset(maxarities, 0, data[t].nVariables*sizeof(int));
+		    maxarities = new int[data[t].nVariables];
+		    for (int v = 0; v < data[t].nVariables; v++) {
+		      maxarities[v] = 0;
+		    }
+		  }
+		  for (int v = 0; v < data[t].nVariables; v++) {
+		    if (data[t].arities[v] > maxarities[v]) {
+		      maxarities[v] = data[t].arities[v];
+		    }
+		  }
 		}
 		nVariables = data[0].nVariables;
-		if (maxIndegree <= 0) {
-			logger.println(2, "Note: The maximum in-degree not given, using nVariables-1 instead.");
-			maxIndegree = nVariables - 1;
+		for (int v = 0; v < nVariables; v++) {
+		  for (int t = 0; t < nTasks; t++) {
+		    if (data[t].arities[v] < maxarities[v]) {
+		      data[t].adjustArity(v, maxarities[v]);
+		    }
+		  }
 		}
 		
-		
-		logger.println(1, "Computing scores...");
-		Timer scoreTimer; scoreTimer.start();
+		logger.println(1, "Computing STL scores...");
+		scoreTimer.start();
 		logger.println(2, "  Allocating a score map...");
 		for (int t = 0; t < nTasks; t++)
 		  tscores[t] = new ParentsetMap<Real>(nVariables, maxIndegree);
 		logger.println(2, "  Computing the actual scores...");
 		computeScores(data, tscores, nTasks);
-		double scoreTime = scoreTimer.elapsed();
-		logStream << "score_computation_time = " << scoreTime << endl;
-		logger.printfln(1, "  Elapsed %.2f s.", scoreTime);
-		logger.println(2, "  Computing multitask scores...");
-		scoreTimer.start();
-		for (int t = 0; t < nTasks; t++)
-		  scores[t] = new ParentsetMap<Real>(nVariables, maxIndegree);
-		computeMultiScores(scores, tscores, nTasks);
 		scoreTime = scoreTimer.elapsed();
-		logStream << "multi_score_computation_time = " << scoreTime << endl;
+		logStream << "score_stl_computation_time = " << scoreTime << endl;
 		logger.printfln(1, "  Elapsed %.2f s.", scoreTime);
 
-		// optionally write scores to file
-		if (!scoreFilename.empty()) {	
-		  string taskfile;
-		  char taskno[10] = "";
-		  logger.println(1, "Writing scores...");
-		  if (scoreFilename == "-") {
-		    for (int t = 0; t < nTasks; t++)
-		      writeScores(cout, *scores[t]);
-		  } else {
-		    for (int t = 0; t < nTasks; t++) {
-		      snprintf(taskno, 10, ".task%d", t+1);
-		      taskfile = scoreFilename + taskno;
-		      ofstream scoreFile(taskfile.c_str());
-		      if (!scoreFile) {
-			logger.printfln(-1, "Error: Could not open file '%s' for writing.",
-					taskfile.c_str());
-			return 1;
-		      }
-		      writeScores(scoreFile, *scores[t]);
-		      scoreFile.close();
-		    }
-		  }
+		// For backwards compatibility, if input and score file given,
+		// write output MTL scores to "score file", rather than
+		// reading in STL scores from "score file"
+		if ((!scoreFilename.empty()) && outFilename=="-") {
+		  logger.println(1, "Assuming score_file is for output (backwards compatibility");
+		  outFilename = scoreFilename;
+		  scoreFilename = "";
 		}
-	
-	// if data file not given, read the scores
-	} else if (!scoreFilename.empty()) {
-		logger.println(1, "Reading scores...");
-		for (int t = 0; t < nTasks; t++) {
-		  string taskfile;
-		  char taskno[10] = "";
-		  if (scoreFilename == "-") {
-		    scores = readScores(cin);
-		  } else {
-		    snprintf(taskno, 10, ".task%d", t+1);
-		    taskfile = inFilename + taskno;
-		    ifstream scoreFile(taskfile.c_str());
-		    if (!scoreFile) {
-		      logger.printfln(-1, "Error: Could not open file '%s' for reading.",
-				      taskfile.c_str());
-		      return 1;
-		    }
-		    try {
-		      scores[t] = readScores(scoreFile);
-		    } catch (Exception& e) {
-		      logger.printfln(-1, "Error: While reading score file '%s': %s",
-				      taskfile.c_str(), e.what());
-		      return 1;
-		    }
-		    scoreFile.close();
-		  }
-		}
-		nVariables = scores[0]->nNodes;
-		maxIndegree = scores[0]->maxParents;
-	
-	// complain if neither data nor scores was given
-	} else {
-		logger.println(-1, "Error: either data or score file should be provided.");
-		logger.printfln(-1, "Type '%s --help' to see help message.", argv[0]);
-		return 1;
-	}
-	
-	// weight scores
-	//logger.println(1, "Weighting scores...");
-	//weightScores(*scores);
-	
-	// open result stream for writing
-	ofstream resFile;
-	ostream resStream(0);
-	if (outFilename == "-") {
-		resStream.rdbuf(cout.rdbuf());
-	} else {
-		resFile.open(outFilename.c_str());
-		if (!resFile) {
-			logger.printfln(-1, "Error: couldn't open file '%s' for writing.", outFilename.c_str());
-			return 1;
-		}
-		resStream.rdbuf(resFile.rdbuf());
-	}
-	
-	// open margin stream if needed
-	ofstream marginFile;
-	ostream marginStream(0);
-	if (marginOutFilename == "-") {
-		marginStream.rdbuf(cout.rdbuf());
-	} else if (marginOutFilename != "") {
-		marginFile.open(marginOutFilename.c_str());
-		if (!marginFile) {
-			logger.printfln(-1, "Error: couldn't open file '%s' for writing.", marginOutFilename.c_str());
-			return 1;
-		}
-		marginStream.rdbuf(marginFile.rdbuf());
-	}
-	marginStream.setf(std::ios::scientific);
-	marginStream.precision(10);
+	} // end reading data to compute STL scores
 
-	
-	// actual computation
-	
-	// version for bucket order
-	if (poType == "bo") {
-		if (nChains != 1)
-			logger.println(0, "Warning: partial order type 'bo' does not support multiple chains.");
-		BucketOrderFamily pof(nVariables, maxBucketSize);
-		if (exact) {
-			// Exact arc probabilities
-			printExact(resStream, logStream, pof, *scores);
-		} else {
-			// MCMC sampling => approximated probabilities
-			printMCMC(resStream, marginStream, logStream, pof, *scores, nBurnInSteps,
-					nSamples, nStepsPerSample, nBurnOutSteps, printSamples);
-		}
+	else if (!scoreFilename.empty()) { //read STL scores from file
+	  logger.println(1, "Reading STL scores...");
+	  for (int t = 0; t < nTasks; t++) {
+	    istream inStream(0);
+	    ifstream inFile;
+	    string taskfile;
+	    char taskno[10] = "";
+	    snprintf(taskno, 10, ".task%d", t+1);
+	    taskfile = scoreFilename + taskno;
+	    ifstream scoreFile(taskfile.c_str());
+	    if (!scoreFile) {
+	      logger.printfln(-1, "Error: Could not open file '%s' for reading.",
+			      taskfile.c_str());
+	      return 1;
+	    }
+	    try {
+	      tscores[t] = readScores(scoreFile);
+	    } catch (Exception& e) {
+	      logger.printfln(-1, "Error: While reading score file '%s': %s",
+			      taskfile.c_str(), e.what());
+	      return 1;
+	    }
+	    scoreFile.close();
+	  } // done reading task score files
+	  nVariables = tscores[0]->nNodes;
+	  maxIndegree = tscores[0]->maxParents;
+	} else { // complain if neither data nor scores was given
+	  logger.printfln(-1, "Error: either data or STL score file should be provided.");
+	  logger.printfln(-1, "Type '%s --help' to see help message.", argv[0]);
+	  return 1;
 	}
-	// version for parallel bucket order
-	else if (poType == "pbo") {
-		ParBucketOrderFamily pof(nVariables, maxBucketSize, nChains);
-		if (exact) {
-			// Exact arc probabilities, TODO: implement
-			//printExact(resStream, logStream, pof, *scores);
-			logger.println(-1, "Exact computation is currently not supported for Parallel Bucket Orders.");
-			return 1;
-		} else {
-			// MCMC sampling => approximated probabilities
-			printMCMC(resStream, marginStream, logStream, pof, *scores, nBurnInSteps,
-					nSamples, nStepsPerSample, nBurnOutSteps, printSamples);
-		}
-	}
-	else {
-		logger.println(-1, "Error: unknown partial order type.");
+
+	logger.println(1, "  Computing multitask scores...");
+	scoreTimer.start();
+	for (int t = 0; t < nTasks; t++)
+	  scores[t] = new ParentsetMap<Real>(nVariables, maxIndegree);
+	computeMultiScores(scores, tscores, nTasks, maxParentSets);
+	scoreTime = scoreTimer.elapsed();
+	logStream << "multi_score_computation_time = " << scoreTime << endl;
+	logger.printfln(1, "  Elapsed %.2f s.", scoreTime);
+		
+	// Write MTL scores to file
+	if (!outFilename.empty()) {
+	  string taskfile;
+	  char taskno[10] = "";
+	  logger.println(1, "Writing MTL scores...");
+	  if (outFilename == "-") {
+	    for (int t = 0; t < nTasks; t++)
+	      writeScores(cout, *scores[t]);
+	  } else {
+	    for (int t = 0; t < nTasks; t++) {
+	      snprintf(taskno, 10, ".task%d", t+1);
+	      taskfile = outFilename + taskno;
+	      ofstream outFile(taskfile.c_str());
+	      if (!outFile) {
+		logger.printfln(-1, "Error: Could not open file '%s' for writing.",
+				outFilename.c_str());
 		return 1;
-	}
-	
-	// actual computation ends
-	
+	      }
+	      writeScores(outFile, *scores[t]);
+	      outFile.close();
+	    }
+	  }
+	} // done writing MTL scores
 	
 	// print timing
 	double elapsedTime = timer.elapsed();	
-	logger.printfln(0, "Elapsed %g s total.", elapsedTime);
+	logger.printfln(0, "MTL Elapsed %g s total.", elapsedTime);
 	logStream << "time = " << elapsedTime << endl;
-	
+
 	// release resources
-	for (in t = 0; t < nTasks; t++)
+	for (int t = 0; t < nTasks; t++)
 	  delete scores[t];
 	delete scores;
-	
-	if (resFile.is_open())
-		resFile.close();
-
-	if (marginFile.is_open())
-		marginFile.close();
 	
 	if (logFile.is_open())
 		logFile.close();

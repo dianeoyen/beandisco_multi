@@ -1,9 +1,10 @@
-BEANDisco - Bayesian Exact and Approximate Network Discovery
+BEANDiscoMulti - Bayesian Exact and Approximate Network Discovery for Multiple Related Networks
 
-Copyright 2011 Teppo Niinimäki <teppo.niinimaki(at)helsinki.fi>
+Copyright 2013 Diane Oyen <doyen(at)unm.cs.edu>
 
-BEANDisco is a software for learning Bayesian network structure from data. See
-[1] and [2] for more information about the algorithms.
+BEANDiscoMulti extends the BEANDisco software (http://www.cs.helsinki.fi/u/tzniinim/BEANDisco/)
+for learning Bayesian network structures from multiple datasets with the same variables.
+See [1] for more info.
 
 
 Licence
@@ -17,7 +18,7 @@ Compilation
 
 Following libraries should be installed:
 
-	boost, boost-program-options
+	gsl, boost, boost-program-options
 
 Compilation:
 
@@ -29,36 +30,36 @@ Usage
 
 Usage:
 
-	./beand [options]
+	./beandmulti [options] [infile [outfile]]
 
 To see the list of available options:
 
-	./beand --help
+	./beandmulti --help
 
-The input data file should contain one data sample per row, each sample
+The program will read an input data file for each task, named <infile>.taskX,
+beginning with X=1. The input data file should contain one data sample per row, each sample
 consisting of one integer value for each variable. Values on a row should be
 separated by whitespace (tabs or spaces). For an example data file with 8
-variables (columns) and 200 samples (rows) see example.dat.
+variables (columns) and 200 samples (rows) see example.task1 and example.task2.
 
 
 Examples
 ========
 
 Compute estimates with maximum in-degree of 3, (maximum) bucket size 4, burn-in
-period of 1000 steps and 100 samples with 10 steps in between:
+period of 1000 steps and 100 samples with 10 steps in between. First compute 
+scores in to a file and then use the precomputed scores to estimate arc probabilities:
 
-	./beand example.dat -m 3 -b 4 -B 1000 -s 100 -S 10
-
-First compute scores in to a file and then use the precomputed scores to
-estimate arc probabilities:
-
-	./beand example.dat -m 3 --score-file example.score
-	./beand --score-file example.score -b 4 -B 1000 -s 100 -S 10 
+	./beandmulti example -t 2 -m 3 --score-file example.score
+	beand --score-file example.score.task1 -b 4 -B 1000 -s 100 -S 10 
+	beand --score-file example.score.task2 -b 4 -B 1000 -s 100 -S 10
 
 Compute exact probabilities (generally with exact computation it is recommended
 to use a bucket size as large as possible with the available memory):
 
-	./beand example.dat -m 3 -b 4 --exact
+	./beandmulti example -t 2 -m 3 --score-file example.score
+	beand --score-file example.score.task1 -b 4 --exact
+	beand --score-file example.score.task1 -b 4 --exact
 
 
 Parameters
@@ -94,11 +95,13 @@ number of burn-in steps (-B)
 
 References
 ==========
+[1] D. Oyen and T. Lane. Bayesian Discovery of Multiple Bayesian Networks via 
+Transfer Learning. ICDM 2013
 
-[1] T. Niinimäki, P. Parviainen and M. Koivisto. Partial Order MCMC for
+[2] T. Niinimäki, P. Parviainen and M. Koivisto. Partial Order MCMC for
 Structure Discovery in Bayesian Networks. UAI 2011
 
-[2] P. Parviainen and M. Koivisto. Bayesian Structure Discovery in Bayesian
+[3] P. Parviainen and M. Koivisto. Bayesian Structure Discovery in Bayesian
 Networks with Less Space. AISTATS 2010
 
 

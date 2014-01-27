@@ -1,6 +1,9 @@
 /*
- *  BEANDisco: functions for computing scores
+ *  BEANDiscoMulti: functions for computing scores
  *  
+ * Modified in 2013 by Diane Oyen <doyen(at)cs.unm.edu>
+ *
+ * Originally from BEANDisco:
  *  Copyright 2011 Teppo Niinimäki <teppo.niinimaki(at)helsinki.fi>
  *  
  *  This program is free software: you can redistribute it and/or modify
